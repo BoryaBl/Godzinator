@@ -35,3 +35,10 @@ def calculate_time_expression(times: list[str], operators: list[str]):
         seconds_to_float_hours(total_seconds)
     )
 
+def calculate_vacation_days(planned_time: str, daily_norm: str) -> float:
+    planned_seconds = time_to_seconds(planned_time)
+    norm_seconds = time_to_seconds(daily_norm)
+
+    return round(planned_seconds / norm_seconds, 2)
+
+

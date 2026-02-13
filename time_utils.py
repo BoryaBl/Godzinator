@@ -8,3 +8,15 @@ def seconds_to_time(seconds: int) -> str:
     secs = seconds % 60
     return f"{hours:02}:{minutes:02}:{secs:02}"
 
+def seconds_to_float_hours(seconds: int) -> float:
+    return round(seconds / 3600, 2)
+
+def multiply_time(time_str: str, days: int):
+    seconds = time_to_seconds(time_str)
+    total_seconds = seconds * days
+
+    return (
+        seconds_to_time(total_seconds),
+        seconds_to_float_hours(total_seconds)
+    )
+

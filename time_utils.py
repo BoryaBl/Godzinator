@@ -20,3 +20,18 @@ def multiply_time(time_str: str, days: int):
         seconds_to_float_hours(total_seconds)
     )
 
+def calculate_time_expression(times: list[str], operators: list[str]):
+    total_seconds = time_to_seconds(times[0])
+
+    for i in range(1, len(times)):
+        seconds = time_to_seconds(times[i])
+        if operators[i - 1] == "+":
+            total_seconds += seconds
+        elif operators[i - 1] == "-":
+            total_seconds -= seconds
+
+    return (
+        seconds_to_time(total_seconds),
+        seconds_to_float_hours(total_seconds)
+    )
+

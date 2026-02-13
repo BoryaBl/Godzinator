@@ -1,4 +1,4 @@
-from time_utils import time_to_seconds, seconds_to_time, seconds_to_float_hours, multiply_time
+from time_utils import time_to_seconds, seconds_to_time, seconds_to_float_hours, multiply_time, calculate_time_expression
 
 test_time = "07:35:00"
 
@@ -15,6 +15,17 @@ time_result, float_result = multiply_time("07:35:00", 8)
 
 print("HH:MM:SS:", time_result)
 print("Godziny (float):", float_result)
+
+print("\nTest sumowania/odejmowania:")
+
+times = ["01:30:00", "07:00:00", "06:00:00", "00:30:00"]
+operators = ["+", "-", "+"]
+
+time_result, float_result = calculate_time_expression(times, operators)
+
+print("HH:MM:SS:", time_result)
+print("Godziny (float):", float_result)
+
 
 
 

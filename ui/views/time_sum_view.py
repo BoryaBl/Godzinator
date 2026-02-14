@@ -23,6 +23,8 @@ class TimeSumView(ctk.CTkFrame):
 
         self._clock_result_var = ctk.StringVar(value="00:00:00")
         self._hours_result_var = ctk.StringVar(value="0.00 h")
+        self._clock_copy_after: str | None = None
+        self._hours_copy_after: str | None = None
 
         self._build_rows_panel()
         self._build_results_panel()
@@ -43,7 +45,7 @@ class TimeSumView(ctk.CTkFrame):
 
         description = ctk.CTkLabel(
             panel,
-            text="Wpisuj pozycje w formacie HH:MM:SS, ustawiaj + lub - i obserwuj wynik na żywo.",
+            text="Każdy wiersz obsługuje mnożnik, aktywność i opis. Wynik aktualizuje się na żywo.",
             font=ctk.CTkFont(family="Segoe UI", size=14),
             text_color=("#475569", "#94a3b8"),
         )
@@ -103,14 +105,27 @@ class TimeSumView(ctk.CTkFrame):
         )
         clock_title.grid(row=1, column=0, sticky="w", padx=24)
 
+        clock_row = ctk.CTkFrame(panel, fg_color="transparent")
+        clock_row.grid(row=2, column=0, sticky="ew", padx=24, pady=(0, 10))
+        clock_row.grid_columnconfigure(0, weight=1)
+
         clock_result = ctk.CTkLabel(
-            panel,
+            clock_row,
             textvariable=self._clock_result_var,
-            width=300,
+            width=220,
             anchor="w",
             font=ctk.CTkFont(family="Consolas", size=44, weight="bold"),
         )
-        clock_result.grid(row=2, column=0, sticky="w", padx=24, pady=(0, 10))
+        clock_result.grid(row=0, column=0, sticky="w")
+
+        self._copy_clock_button = ctk.CTkButton(
+            clock_row,
+            text="Kopiuj",
+            width=90,
+            height=30,
+            command=self._copy_clock_result,
+        )
+        self._copy_clock_button.grid(row=0, column=1, sticky="e", padx=(8, 0))
 
         hours_title = ctk.CTkLabel(
             panel,
@@ -120,18 +135,31 @@ class TimeSumView(ctk.CTkFrame):
         )
         hours_title.grid(row=3, column=0, sticky="sw", padx=24)
 
+        hours_row = ctk.CTkFrame(panel, fg_color="transparent")
+        hours_row.grid(row=4, column=0, sticky="ew", padx=24, pady=(0, 24))
+        hours_row.grid_columnconfigure(0, weight=1)
+
         hours_result = ctk.CTkLabel(
-            panel,
+            hours_row,
             textvariable=self._hours_result_var,
-            width=300,
+            width=220,
             anchor="w",
             font=ctk.CTkFont(family="Consolas", size=32, weight="bold"),
         )
-        hours_result.grid(row=4, column=0, sticky="nw", padx=24, pady=(0, 24))
+        hours_result.grid(row=0, column=0, sticky="w")
+
+        self._copy_hours_button = ctk.CTkButton(
+            hours_row,
+            text="Kopiuj",
+            width=90,
+            height=30,
+            command=self._copy_hours_result,
+        )
+        self._copy_hours_button.grid(row=0, column=1, sticky="e", padx=(8, 0))
 
     def add_row(self) -> None:
         row_id = uuid.uuid4().hex
-        row_state = TimeRowState(row_id=row_id)
+        row_state = TimeRowState(row_id=row_id, multiplier="1", is_active=True)
 
         row_widget = TimeRowWidget(
             self._rows_scrollable,
@@ -173,10 +201,10 @@ class TimeSumView(ctk.CTkFrame):
 
     def recalculate(self) -> None:
         ordered_states = [self._rows[row_id].state for row_id in self._row_order]
-        times, operators, total_seconds = build_expression_payload(ordered_states)
+        times, operators, multipliers, total_seconds = build_expression_payload(ordered_states)
 
         try:
-            calculate_time_expression(times, operators)
+            calculate_time_expression(times, operators, multipliers)
         except Exception as error:
             print(f"[Godzinator] Calculation error: {error}")
             self._set_result_values(0)
@@ -193,6 +221,50 @@ class TimeSumView(ctk.CTkFrame):
 
         self._hours_result_var.set(f"{hours_value:.2f} h")
 
+    def _copy_clock_result(self) -> None:
+        self._copy_to_clipboard(self._clock_result_var.get())
+        self._show_copy_feedback("clock")
+
+    def _copy_hours_result(self) -> None:
+        self._copy_to_clipboard(self._hours_result_var.get())
+        self._show_copy_feedback("hours")
+
+    def _copy_to_clipboard(self, text: str) -> None:
+        self.clipboard_clear()
+        self.clipboard_append(text)
+        self.update_idletasks()
+
+    def _show_copy_feedback(self, target: str) -> None:
+        if target == "clock":
+            button = self._copy_clock_button
+            if self._clock_copy_after is not None:
+                try:
+                    self.after_cancel(self._clock_copy_after)
+                except Exception:
+                    pass
+            button.configure(text="Skopiowano!")
+
+            def _reset_clock_button() -> None:
+                button.configure(text="Kopiuj")
+                self._clock_copy_after = None
+
+            self._clock_copy_after = self.after(1500, _reset_clock_button)
+            return
+
+        button = self._copy_hours_button
+        if self._hours_copy_after is not None:
+            try:
+                self.after_cancel(self._hours_copy_after)
+            except Exception:
+                pass
+        button.configure(text="Skopiowano!")
+
+        def _reset_hours_button() -> None:
+            button.configure(text="Kopiuj")
+            self._hours_copy_after = None
+
+        self._hours_copy_after = self.after(1500, _reset_hours_button)
+
     def _regrid_rows(self) -> None:
         for row_widget in self._rows.values():
             row_widget.grid_forget()
@@ -200,21 +272,13 @@ class TimeSumView(ctk.CTkFrame):
         for index, row_id in enumerate(self._row_order):
             self._rows[row_id].grid(row=index, column=0, sticky="ew", pady=(0, 8))
 
-    def _on_row_change(self, row_id: str, value: str) -> None:
-        row_widget = self._rows.get(row_id)
-        if row_widget is None:
-            return
+    def _on_row_change(self, row_id: str) -> None:
+        if row_id in self._rows:
+            self.recalculate()
 
-        row_widget.state.value = value
-        self.recalculate()
-
-    def _on_row_toggle(self, row_id: str, operator: str) -> None:
-        row_widget = self._rows.get(row_id)
-        if row_widget is None:
-            return
-
-        row_widget.state.operator = operator
-        self.recalculate()
+    def _on_row_toggle(self, row_id: str) -> None:
+        if row_id in self._rows:
+            self.recalculate()
 
     def _on_row_remove(self, row_id: str) -> None:
         self.remove_row(row_id)

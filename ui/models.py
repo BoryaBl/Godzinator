@@ -12,6 +12,9 @@ class TimeRowState:
     row_id: str
     operator: str = "+"
     value: str = ""
+    multiplier: str = "1"
+    is_active: bool = True
+    description: str = ""
 
     @property
     def digits(self) -> str:

@@ -7,8 +7,11 @@ from ui.utils.time_sum_helpers import (
     build_expression_payload,
     format_signed_seconds,
     is_complete_hhmmss,
+    is_valid_multiplier,
     mask_hhmmss,
+    parse_multiplier,
     sanitize_digits,
+    sanitize_multiplier_text,
 )
 
 
@@ -42,35 +45,70 @@ class TestTimeSumHelpers(unittest.TestCase):
         self.assertTrue(is_complete_hhmmss("12:34:56"))
         self.assertTrue(is_complete_hhmmss("143:55:00"))
 
+    def test_sanitize_multiplier_text(self) -> None:
+        self.assertEqual(sanitize_multiplier_text("a1b.5x"), "1.5")
+        self.assertEqual(sanitize_multiplier_text("1,,5"), "1,5")
+        self.assertEqual(sanitize_multiplier_text("-12.25"), "12.25")
+
+    def test_parse_multiplier(self) -> None:
+        self.assertEqual(parse_multiplier("1"), 1.0)
+        self.assertEqual(parse_multiplier("1.5"), 1.5)
+        self.assertEqual(parse_multiplier("1,5"), 1.5)
+        self.assertEqual(parse_multiplier("0"), 0.0)
+
+        self.assertIsNone(parse_multiplier(""))
+        self.assertIsNone(parse_multiplier("-1"))
+        self.assertIsNone(parse_multiplier("1..2"))
+
+    def test_is_valid_multiplier(self) -> None:
+        self.assertTrue(is_valid_multiplier("2"))
+        self.assertTrue(is_valid_multiplier("2,25"))
+        self.assertFalse(is_valid_multiplier(""))
+        self.assertFalse(is_valid_multiplier(".."))
+
     def test_format_signed_seconds(self) -> None:
         self.assertEqual(format_signed_seconds(0), "00:00:00")
         self.assertEqual(format_signed_seconds(3661), "01:01:01")
         self.assertEqual(format_signed_seconds(-3661), "-01:01:01")
         self.assertEqual(format_signed_seconds(-10), "-00:00:10")
 
-    def test_build_expression_payload_uses_only_complete_rows(self) -> None:
+    def test_build_expression_payload_uses_multipliers_and_activity(self) -> None:
         rows = [
-            TimeRowState(row_id="1", operator="+", value="143:55:00"),
-            TimeRowState(row_id="2", operator="-", value="14:35"),
-            TimeRowState(row_id="3", operator="-", value="1:05:00"),
-            TimeRowState(row_id="4", operator="+", value=""),
+            TimeRowState(row_id="1", operator="+", value="01:00:00", multiplier="1.5", is_active=True),
+            TimeRowState(row_id="2", operator="-", value="00:30:00", multiplier="2", is_active=True),
+            TimeRowState(row_id="3", operator="+", value="00:10:00", multiplier="abc", is_active=True),
+            TimeRowState(row_id="4", operator="+", value="00:20:00", multiplier="1", is_active=False),
         ]
 
-        times, operators, total_seconds = build_expression_payload(rows)
+        times, operators, multipliers, total_seconds = build_expression_payload(rows)
 
-        self.assertEqual(times, ["00:00:00", "143:55:00", "1:05:00"])
+        self.assertEqual(times, ["00:00:00", "01:00:00", "00:30:00"])
         self.assertEqual(operators, ["+", "-"])
-        self.assertEqual(total_seconds, 514200)
+        self.assertEqual(multipliers, [1.5, 2.0])
+        self.assertEqual(total_seconds, 1800)
+
+    def test_build_expression_payload_rounds_half_up(self) -> None:
+        rows = [
+            TimeRowState(row_id="1", operator="+", value="00:00:01", multiplier="1.5", is_active=True),
+        ]
+
+        times, operators, multipliers, total_seconds = build_expression_payload(rows)
+
+        self.assertEqual(times, ["00:00:00", "00:00:01"])
+        self.assertEqual(operators, ["+"])
+        self.assertEqual(multipliers, [1.5])
+        self.assertEqual(total_seconds, 2)
 
     def test_build_expression_payload_falls_back_to_plus_for_invalid_operator(self) -> None:
         rows = [
-            TimeRowState(row_id="1", operator="*", value="00:15:00"),
+            TimeRowState(row_id="1", operator="*", value="00:15:00", multiplier="1", is_active=True),
         ]
 
-        times, operators, total_seconds = build_expression_payload(rows)
+        times, operators, multipliers, total_seconds = build_expression_payload(rows)
 
         self.assertEqual(times, ["00:00:00", "00:15:00"])
         self.assertEqual(operators, ["+"])
+        self.assertEqual(multipliers, [1.0])
         self.assertEqual(total_seconds, 900)
 
 

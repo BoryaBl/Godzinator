@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections.abc import Iterable
 
@@ -7,22 +7,22 @@ from ui.models import TimeRowState
 
 
 def sanitize_digits(value: str) -> str:
-    return "".join(character for character in value if character.isdigit())[:6]
+    return "".join(character for character in value if character.isdigit())[:7]
 
 
 def mask_hhmmss(value: str) -> str:
     digits = sanitize_digits(value)
-    if not digits:
-        return ""
-    if len(digits) <= 2:
+    length = len(digits)
+
+    if length <= 3:
         return digits
-    if len(digits) <= 4:
+    if length == 4:
         return f"{digits[:2]}:{digits[2:]}"
-    return f"{digits[:2]}:{digits[2:4]}:{digits[4:]}"
+    return f"{digits[:-4]}:{digits[-4:-2]}:{digits[-2:]}"
 
 
 def is_complete_hhmmss(value: str) -> bool:
-    return len(sanitize_digits(value)) == 6
+    return 5 <= len(sanitize_digits(value)) <= 7
 
 
 def format_signed_seconds(total_seconds: int) -> str:
@@ -36,9 +36,9 @@ def format_signed_seconds(total_seconds: int) -> str:
 
 def digits_to_hhmmss(value: str) -> str:
     digits = sanitize_digits(value)
-    if len(digits) != 6:
-        raise ValueError("Time value must contain exactly 6 digits")
-    return f"{digits[:2]}:{digits[2:4]}:{digits[4:6]}"
+    if not 5 <= len(digits) <= 7:
+        raise ValueError("Time value must contain from 5 to 7 digits")
+    return f"{digits[:-4]}:{digits[-4:-2]}:{digits[-2:]}"
 
 
 def build_expression_payload(rows: Iterable[TimeRowState]) -> tuple[list[str], list[str], int]:

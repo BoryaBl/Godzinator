@@ -1,10 +1,10 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass
 
 
 def _only_digits(value: str) -> str:
-    return "".join(character for character in value if character.isdigit())[:6]
+    return "".join(character for character in value if character.isdigit())[:7]
 
 
 @dataclass(slots=True)
@@ -23,4 +23,4 @@ class TimeRowState:
 
     @property
     def is_complete(self) -> bool:
-        return len(self.digits) == 6
+        return 5 <= len(self.digits) <= 7

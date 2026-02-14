@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import uuid
 
@@ -14,8 +14,8 @@ class TimeSumView(ctk.CTkFrame):
     def __init__(self, master: ctk.CTkBaseClass) -> None:
         super().__init__(master, fg_color="transparent")
 
-        self.grid_columnconfigure(0, weight=3)
-        self.grid_columnconfigure(1, weight=2)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=0, minsize=360)
         self.grid_rowconfigure(0, weight=1)
 
         self._rows: dict[str, TimeRowWidget] = {}
@@ -82,10 +82,11 @@ class TimeSumView(ctk.CTkFrame):
         panel.grid_rowconfigure(2, weight=1)
 
     def _build_results_panel(self) -> None:
-        panel = ctk.CTkFrame(self, corner_radius=18)
-        panel.grid(row=0, column=1, sticky="nsew", padx=(12, 0), pady=0)
+        panel = ctk.CTkFrame(self, corner_radius=18, width=360)
+        panel.grid(row=0, column=1, sticky="ns", padx=(12, 0), pady=0)
+        panel.grid_propagate(False)
         panel.grid_columnconfigure(0, weight=1)
-        panel.grid_rowconfigure(3, weight=1)
+        panel.grid_rowconfigure(5, weight=1)
 
         heading = ctk.CTkLabel(
             panel,
@@ -105,7 +106,9 @@ class TimeSumView(ctk.CTkFrame):
         clock_result = ctk.CTkLabel(
             panel,
             textvariable=self._clock_result_var,
-            font=ctk.CTkFont(family="Segoe UI", size=44, weight="bold"),
+            width=300,
+            anchor="w",
+            font=ctk.CTkFont(family="Consolas", size=44, weight="bold"),
         )
         clock_result.grid(row=2, column=0, sticky="w", padx=24, pady=(0, 10))
 
@@ -120,7 +123,9 @@ class TimeSumView(ctk.CTkFrame):
         hours_result = ctk.CTkLabel(
             panel,
             textvariable=self._hours_result_var,
-            font=ctk.CTkFont(family="Segoe UI", size=32, weight="bold"),
+            width=300,
+            anchor="w",
+            font=ctk.CTkFont(family="Consolas", size=32, weight="bold"),
         )
         hours_result.grid(row=4, column=0, sticky="nw", padx=24, pady=(0, 24))
 

@@ -1,11 +1,11 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections.abc import Callable
 
 import customtkinter as ctk
 
 from ui.models import TimeRowState
-from ui.utils.time_sum_helpers import mask_hhmmss, sanitize_digits
+from ui.utils.time_sum_helpers import mask_hhmmss
 
 OnRowChange = Callable[[str, str], None]
 OnRowToggle = Callable[[str, str], None]
@@ -84,7 +84,7 @@ class TimeRowWidget(ctk.CTkFrame):
 
     def _on_entry_interaction(self, _: object | None = None) -> None:
         current_value = self._time_entry.get()
-        masked_value = mask_hhmmss(sanitize_digits(current_value))
+        masked_value = mask_hhmmss(current_value)
 
         if current_value != masked_value:
             self._time_entry.delete(0, "end")

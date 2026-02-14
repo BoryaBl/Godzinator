@@ -2,7 +2,7 @@
 
 import unittest
 
-from time_utils import calculate_time_expression
+from time_utils import calculate_time_expression, calculate_vacation_days
 
 
 class TestTimeUtils(unittest.TestCase):
@@ -36,6 +36,19 @@ class TestTimeUtils(unittest.TestCase):
                 operators=["+"],
                 multipliers=[1.0, 2.0],
             )
+
+    def test_calculate_vacation_days_with_valid_norm(self) -> None:
+        self.assertEqual(calculate_vacation_days(43200, "07:35:00"), 1.58)
+
+    def test_calculate_vacation_days_allows_negative_total_seconds(self) -> None:
+        self.assertEqual(calculate_vacation_days(-21600, "08:00:00"), -0.75)
+
+    def test_calculate_vacation_days_returns_zero_for_zero_norm(self) -> None:
+        self.assertEqual(calculate_vacation_days(3600, "00:00:00"), 0.0)
+
+    def test_calculate_vacation_days_returns_zero_for_invalid_norm(self) -> None:
+        self.assertEqual(calculate_vacation_days(3600, ""), 0.0)
+        self.assertEqual(calculate_vacation_days(3600, "14:35"), 0.0)
 
 
 if __name__ == "__main__":

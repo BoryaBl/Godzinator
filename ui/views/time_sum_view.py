@@ -4,9 +4,19 @@ import uuid
 
 import customtkinter as ctk
 
-from time_utils import calculate_time_expression, seconds_to_float_hours
+from time_utils import (
+    calculate_time_expression,
+    calculate_vacation_days,
+    seconds_to_float_hours,
+    time_to_seconds,
+)
 from ui.models import TimeRowState
-from ui.utils.time_sum_helpers import build_expression_payload, format_signed_seconds
+from ui.utils.time_sum_helpers import (
+    build_expression_payload,
+    format_signed_seconds,
+    is_complete_hhmmss,
+    mask_hhmmss,
+)
 from ui.widgets.time_row import TimeRowWidget
 
 
@@ -23,6 +33,9 @@ class TimeSumView(ctk.CTkFrame):
 
         self._clock_result_var = ctk.StringVar(value="00:00:00")
         self._hours_result_var = ctk.StringVar(value="0.00 h")
+        self._days_result_var = ctk.StringVar(value="0.00")
+        self._daily_norm_var = ctk.StringVar(value="08:00:00")
+        self._daily_norm_quick_target = "07:35:00"
         self._clock_copy_after: str | None = None
         self._hours_copy_after: str | None = None
 
@@ -36,20 +49,65 @@ class TimeSumView(ctk.CTkFrame):
         panel.grid(row=0, column=0, sticky="nsew", padx=(0, 12), pady=0)
         panel.grid_columnconfigure(0, weight=1)
 
+        header = ctk.CTkFrame(panel, fg_color="transparent")
+        header.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 6))
+        header.grid_columnconfigure(0, weight=1)
+
         heading = ctk.CTkLabel(
-            panel,
+            header,
             text="Sumowanie czasu",
             font=ctk.CTkFont(family="Segoe UI", size=30, weight="bold"),
         )
-        heading.grid(row=0, column=0, sticky="w", padx=20, pady=(20, 4))
+        heading.grid(row=0, column=0, sticky="w")
+
+        norm_frame = ctk.CTkFrame(header, fg_color="transparent")
+        norm_frame.grid(row=1, column=0, sticky="w", pady=(8, 0))
+        norm_frame.grid_columnconfigure(1, weight=0)
+
+        daily_norm_label = ctk.CTkLabel(
+            norm_frame,
+            text="Norma dobowa:",
+            font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
+            text_color=("#475569", "#94a3b8"),
+        )
+        daily_norm_label.grid(row=0, column=0, padx=(0, 8), sticky="e")
+
+        self._daily_norm_entry = ctk.CTkEntry(
+            norm_frame,
+            width=124,
+            height=34,
+            textvariable=self._daily_norm_var,
+            font=ctk.CTkFont(family="Segoe UI", size=14),
+        )
+        self._daily_norm_entry.grid(row=0, column=1, padx=(0, 8), sticky="e")
+        self._daily_norm_entry.bind("<KeyRelease>", self._on_daily_norm_change)
+        self._daily_norm_entry.bind("<FocusOut>", self._on_daily_norm_change)
+
+        self._daily_norm_quick_button = ctk.CTkButton(
+            norm_frame,
+            width=86,
+            height=34,
+            text=self._daily_norm_quick_target,
+            command=self._on_daily_norm_quick_toggle,
+        )
+        self._daily_norm_quick_button.grid(row=0, column=2, sticky="e")
+
+        self._default_daily_norm_border_color = self._daily_norm_entry.cget("border_color")
+        self._default_daily_norm_border_width = self._daily_norm_entry.cget("border_width")
 
         description = ctk.CTkLabel(
             panel,
             text="Każdy wiersz obsługuje mnożnik, aktywność i opis. Wynik aktualizuje się na żywo.",
             font=ctk.CTkFont(family="Segoe UI", size=14),
             text_color=("#475569", "#94a3b8"),
+            justify="left",
         )
         description.grid(row=1, column=0, sticky="w", padx=20, pady=(0, 12))
+        panel.bind(
+            "<Configure>",
+            lambda event: description.configure(wraplength=max(event.width - 44, 260)),
+            add="+",
+        )
 
         self._rows_scrollable = ctk.CTkScrollableFrame(panel, fg_color="transparent")
         self._rows_scrollable.grid(row=2, column=0, sticky="nsew", padx=16, pady=(0, 12))
@@ -82,13 +140,15 @@ class TimeSumView(ctk.CTkFrame):
         clear_button.grid(row=0, column=1, sticky="ew", padx=(6, 0))
 
         panel.grid_rowconfigure(2, weight=1)
+        self._sync_daily_norm_quick_button()
+        self._set_daily_norm_validation_state(False)
 
     def _build_results_panel(self) -> None:
         panel = ctk.CTkFrame(self, corner_radius=18, width=360)
         panel.grid(row=0, column=1, sticky="ns", padx=(12, 0), pady=0)
         panel.grid_propagate(False)
         panel.grid_columnconfigure(0, weight=1)
-        panel.grid_rowconfigure(5, weight=1)
+        panel.grid_rowconfigure(7, weight=1)
 
         heading = ctk.CTkLabel(
             panel,
@@ -157,6 +217,23 @@ class TimeSumView(ctk.CTkFrame):
         )
         self._copy_hours_button.grid(row=0, column=1, sticky="e", padx=(8, 0))
 
+        days_title = ctk.CTkLabel(
+            panel,
+            text="Liczba dni",
+            font=ctk.CTkFont(family="Segoe UI", size=14),
+            text_color=("#64748b", "#94a3b8"),
+        )
+        days_title.grid(row=5, column=0, sticky="sw", padx=24)
+
+        days_result = ctk.CTkLabel(
+            panel,
+            textvariable=self._days_result_var,
+            width=300,
+            anchor="w",
+            font=ctk.CTkFont(family="Consolas", size=32, weight="bold"),
+        )
+        days_result.grid(row=6, column=0, sticky="nw", padx=24, pady=(0, 24))
+
     def add_row(self) -> None:
         row_id = uuid.uuid4().hex
         row_state = TimeRowState(row_id=row_id, multiplier="1", is_active=True)
@@ -202,17 +279,24 @@ class TimeSumView(ctk.CTkFrame):
     def recalculate(self) -> None:
         ordered_states = [self._rows[row_id].state for row_id in self._row_order]
         times, operators, multipliers, total_seconds = build_expression_payload(ordered_states)
+        daily_norm_text = self._daily_norm_var.get()
+        daily_norm_invalid = self._is_daily_norm_invalid(daily_norm_text)
+        self._set_daily_norm_validation_state(daily_norm_invalid)
+
+        days_value = 0.0
+        if not daily_norm_invalid:
+            days_value = calculate_vacation_days(total_seconds, daily_norm_text)
 
         try:
             calculate_time_expression(times, operators, multipliers)
         except Exception as error:
             print(f"[Godzinator] Calculation error: {error}")
-            self._set_result_values(0)
+            self._set_result_values(0, 0.0)
             return
 
-        self._set_result_values(total_seconds)
+        self._set_result_values(total_seconds, days_value)
 
-    def _set_result_values(self, total_seconds: int) -> None:
+    def _set_result_values(self, total_seconds: int, days_value: float) -> None:
         self._clock_result_var.set(format_signed_seconds(total_seconds))
 
         hours_value = seconds_to_float_hours(total_seconds)
@@ -220,6 +304,58 @@ class TimeSumView(ctk.CTkFrame):
             hours_value = 0.0
 
         self._hours_result_var.set(f"{hours_value:.2f} h")
+        self._days_result_var.set(f"{days_value:.2f}")
+
+    def _on_daily_norm_change(self, _: object | None = None) -> None:
+        current_value = self._daily_norm_entry.get()
+        masked_value = mask_hhmmss(current_value)
+
+        if current_value != masked_value:
+            self._daily_norm_entry.delete(0, "end")
+            self._daily_norm_entry.insert(0, masked_value)
+
+        self._daily_norm_var.set(masked_value)
+        self._sync_daily_norm_quick_button()
+        self.recalculate()
+
+    def _on_daily_norm_quick_toggle(self) -> None:
+        self._daily_norm_entry.delete(0, "end")
+        self._daily_norm_entry.insert(0, self._daily_norm_quick_target)
+        self._daily_norm_var.set(self._daily_norm_quick_target)
+        self._sync_daily_norm_quick_button()
+        self.recalculate()
+
+    def _sync_daily_norm_quick_button(self) -> None:
+        current_value = self._daily_norm_var.get()
+        if current_value == "08:00:00":
+            self._daily_norm_quick_target = "07:35:00"
+        elif current_value == "07:35:00":
+            self._daily_norm_quick_target = "08:00:00"
+        else:
+            self._daily_norm_quick_target = "07:35:00"
+
+        self._daily_norm_quick_button.configure(text=self._daily_norm_quick_target)
+
+    def _set_daily_norm_validation_state(self, is_invalid: bool) -> None:
+        if is_invalid:
+            self._daily_norm_entry.configure(border_color=("#dc2626", "#f87171"), border_width=2)
+            return
+
+        self._daily_norm_entry.configure(
+            border_color=self._default_daily_norm_border_color,
+            border_width=self._default_daily_norm_border_width,
+        )
+
+    def _is_daily_norm_invalid(self, value: str) -> bool:
+        if not is_complete_hhmmss(value):
+            return True
+
+        try:
+            norm_seconds = time_to_seconds(value)
+        except ValueError:
+            return True
+
+        return norm_seconds <= 0
 
     def _copy_clock_result(self) -> None:
         self._copy_to_clipboard(self._clock_result_var.get())

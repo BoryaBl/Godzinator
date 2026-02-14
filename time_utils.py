@@ -66,8 +66,13 @@ def calculate_time_expression(
     )
 
 
-def calculate_vacation_days(planned_time: str, daily_norm: str) -> float:
-    planned_seconds = time_to_seconds(planned_time)
-    norm_seconds = time_to_seconds(daily_norm)
+def calculate_vacation_days(total_seconds: int, daily_norm: str) -> float:
+    try:
+        norm_seconds = time_to_seconds(daily_norm)
+    except (TypeError, ValueError):
+        return 0.0
 
-    return round(planned_seconds / norm_seconds, 2)
+    if norm_seconds <= 0:
+        return 0.0
+
+    return round(total_seconds / norm_seconds, 2)

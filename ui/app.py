@@ -3,12 +3,13 @@ from __future__ import annotations
 import customtkinter as ctk
 
 from ui.sidebar import (
-    VIEW_DAYS_FROM_NORM,
+    VIEW_TIME_CONVERTER,
     VIEW_TIME_MULTIPLY,
     VIEW_TIME_SUM,
     Sidebar,
 )
 from ui.views.placeholder_view import PlaceholderView
+from ui.views.time_converter_view import TimeConverterView
 from ui.views.time_sum_view import TimeSumView
 
 
@@ -58,12 +59,8 @@ class GodzinatorApp(ctk.CTk):
 
         if view_id == VIEW_TIME_SUM:
             view: ctk.CTkFrame = TimeSumView(self.content)
-        elif view_id == VIEW_DAYS_FROM_NORM:
-            view = PlaceholderView(
-                self.content,
-                title="Dni z normy",
-                description="Ten widok jest w przygotowaniu.",
-            )
+        elif view_id == VIEW_TIME_CONVERTER:
+            view = TimeConverterView(self.content)
         elif view_id == VIEW_TIME_MULTIPLY:
             view = PlaceholderView(
                 self.content,

@@ -5,7 +5,7 @@ from collections.abc import Callable
 import customtkinter as ctk
 
 VIEW_TIME_SUM = "time_sum"
-VIEW_DAYS_FROM_NORM = "days_from_norm"
+VIEW_TIME_CONVERTER = "time_converter"
 VIEW_TIME_MULTIPLY = "time_multiply"
 
 
@@ -28,7 +28,7 @@ class Sidebar(ctk.CTkFrame):
         brand_label.grid(row=0, column=0, sticky="w", padx=20, pady=(26, 24))
 
         self._create_nav_button(1, VIEW_TIME_SUM, "Sumowanie czasu")
-        self._create_nav_button(2, VIEW_DAYS_FROM_NORM, "Dni z normy")
+        self._create_nav_button(2, VIEW_TIME_CONVERTER, "Konwerter czasu")
         self._create_nav_button(3, VIEW_TIME_MULTIPLY, "Mnożenie czasu")
 
         self.set_active(initial_view)

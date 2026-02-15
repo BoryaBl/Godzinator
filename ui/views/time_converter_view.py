@@ -154,12 +154,24 @@ class TimeConverterView(ctk.CTkFrame):
         )
         self._clear_all_validation_states()
 
-    def _update_all_fields(self, base_seconds: int) -> None:
+    def _update_all_fields(self, base_seconds: int, preserve: tuple[str, str] | None = None) -> None:
+        values = {
+            "seconds": str(base_seconds),
+            "minutes": format_float_compact(base_seconds / 60),
+            "hours": format_float_compact(base_seconds / 3600),
+            "clock": seconds_to_time(base_seconds),
+        }
+
+        if preserve is not None:
+            preserve_key, preserve_value = preserve
+            if preserve_key in values:
+                values[preserve_key] = preserve_value
+
         updates = [
-            (self._seconds_var, str(base_seconds)),
-            (self._minutes_var, format_float_compact(base_seconds / 60)),
-            (self._hours_var, format_float_compact(base_seconds / 3600)),
-            (self._clock_var, seconds_to_time(base_seconds)),
+            (self._seconds_var, values["seconds"]),
+            (self._minutes_var, values["minutes"]),
+            (self._hours_var, values["hours"]),
+            (self._clock_var, values["clock"]),
         ]
         self._set_vars_programmatically(updates)
         self._clear_all_validation_states()
@@ -186,7 +198,7 @@ class TimeConverterView(ctk.CTkFrame):
             return
 
         base_seconds = round_half_up_non_negative(parsed_value * factor)
-        self._update_all_fields(base_seconds)
+        self._update_all_fields(base_seconds, preserve=(key, sanitized))
 
         if had_invalid_chars:
             self._set_entry_invalid(key, True)
